@@ -1,0 +1,31 @@
+{
+  "name": "apprankhero-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for AppRankHero — App Store Optimization data (keyword ranks, research, competitors) for AI clients like Claude.",
+  "type": "module",
+  "bin": {
+    "apprankhero-mcp": "src/index.js"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "aso",
+    "app-store-optimization",
+    "apprankhero"
+  ],
+  "author": "DedalDev",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.0",
+    "zod": "^3.23.8"
+  }
+}
