@@ -134,6 +134,18 @@ server.tool(
 );
 
 server.tool(
+  "arh_report",
+  "Ranking report for the team (the same data as the scheduled email and Slack reports): per app tracked and ranked keyword counts, top 10 count now vs period start, average rank, top gainers and losers, keywords that entered or left the top 10, and data freshness. Use it to answer 'how did my apps do this week'.",
+  {
+    period: z.enum(["daily", "weekly", "monthly"]).optional().describe("daily = last 24h, weekly = last 7 days (default), monthly = last 30 days."),
+    app_id: z.string().optional().describe("Limit to one app (id from arh_list_apps). Omit for all of the team's own and client apps."),
+  },
+  async ({ period, app_id }) => {
+    try { return ok(await api("/report", { period, app_id })); } catch (e) { return fail(e); }
+  }
+);
+
+server.tool(
   "arh_competitors",
   "List the apps competing for a given keyword in a country (the apps currently ranking for it).",
   {

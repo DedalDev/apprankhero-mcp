@@ -22,6 +22,7 @@ competitors for 'focus timer'?"* — answered live from your AppRankHero data.
 | `arh_list_apps` | List your tracked apps (use the `id` as `app_id` below) |
 | `arh_search_keywords` | Keyword research: popularity & difficulty by country |
 | `arh_app_rankings` | Current ranks of your team's tracked keywords for one app (+ 24h/7d/28d change) |
+| `arh_report` | Weekly, daily or monthly ranking report (gainers, losers, top 10 changes) |
 | `arh_rank_history` | Ranking trend over time for an app + keyword (`days`, default 90, max 730) |
 | `arh_competitors` | Apps competing for a keyword |
 | `arh_list_tracked_keywords` | Tracked keywords for an app with status (`ranked`, `unranked`, `pending`), rank, changes, popularity, difficulty |
