@@ -18,12 +18,21 @@ competitors for 'focus timer'?"* — answered live from your AppRankHero data.
 
 | Tool | What it does |
 |------|--------------|
-| `arh_whoami` | Verify the key; show team, plan, tracked-app count |
+| `arh_whoami` | Verify the key; show the active team, your role, plan, limits and all your teams |
 | `arh_list_apps` | List your tracked apps (use the `id` as `app_id` below) |
 | `arh_search_keywords` | Keyword research: popularity & difficulty by country |
-| `arh_app_rankings` | Current keyword ranks for one of your apps (+ 24h/7d/28d change) |
-| `arh_rank_history` | Ranking trend over time for an app + keyword |
+| `arh_app_rankings` | Current ranks of your team's tracked keywords for one app (+ 24h/7d/28d change) |
+| `arh_rank_history` | Ranking trend over time for an app + keyword (`days`, default 90, max 730) |
 | `arh_competitors` | Apps competing for a keyword |
+| `arh_list_tracked_keywords` | Tracked keywords for an app with status (`ranked`, `unranked`, `pending`), rank, changes, popularity, difficulty |
+| `arh_track_keywords` | Track up to 200 keywords for an app in a country; they are ranked on the server (right away for 5 or fewer, otherwise within about a minute) |
+| `arh_untrack_keywords` | Stop tracking keywords for an app in a country |
+| `arh_search_store_apps` | Search the live App Store to find an app's store id |
+| `arh_add_app` | Add an App Store app (by store id) or a research project to your team |
+
+Write tools (`arh_track_keywords`, `arh_untrack_keywords`, `arh_add_app`) need the
+**owner** or **member** role in the team; viewers are read only. Plan limits on
+apps and keywords apply exactly as in the desktop app.
 
 ## Setup — Claude Desktop
 
@@ -58,6 +67,7 @@ claude mcp add apprankhero --env ARH_LICENSE_KEY=ARH-XXXXXXXX-XXXXXXXX -- npx -y
 |---------|----------|---------|-------|
 | `ARH_LICENSE_KEY` | yes | — | Your AppRankHero Pro license key |
 | `ARH_API_BASE` | no | `https://apprankhero.com/api/v1` | Override for self-hosted / local dev |
+| `ARH_TEAM_ID` | no | your own team | Team to act on when you belong to several (ids are listed by `arh_whoami`) |
 
 ## Run locally (development)
 
@@ -69,7 +79,8 @@ ARH_LICENSE_KEY=ARH-... ARH_API_BASE=http://localhost:8000/api/v1 npm start
 ## Privacy
 
 The server talks only to the AppRankHero API over HTTPS using your license key.
-It exposes **read-only** ASO data scoped to your own team. Your key never leaves
+It exposes ASO data scoped to your own team, and can only change what your
+team tracks (apps and keywords) when your role allows it. Your key never leaves
 your machine except as an auth header to apprankhero.com.
 
 ---
