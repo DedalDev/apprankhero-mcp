@@ -2,9 +2,10 @@
 /**
  * AppRankHero MCP server.
  *
- * Exposes App Store Optimization data (tracked apps, keyword ranks, keyword
- * research, competitors) to MCP-compatible AI clients such as Claude, and lets
- * them manage what the team tracks (add apps, track or untrack keywords).
+ * Exposes App Store Optimization data for the App Store (iOS) and Google Play
+ * (Android): tracked apps, keyword ranks, keyword research and competitors, to
+ * MCP-compatible AI clients such as Claude. It also lets them manage what the
+ * team tracks (add apps, track or untrack keywords).
  *
  * Auth: your AppRankHero Pro license key. Configure via env:
  *   ARH_LICENSE_KEY  (required)  e.g. ARH-XXXXXXXX-...
@@ -15,7 +16,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 const API_BASE = (process.env.ARH_API_BASE || "https://apprankhero.com/api/v1").replace(/\/$/, "");
 const LICENSE_KEY = process.env.ARH_LICENSE_KEY;
 const TEAM_ID = process.env.ARH_TEAM_ID || "";
@@ -71,7 +72,12 @@ function fail(err) {
 }
 
 const country = (fallback) =>
-  z.string().length(2).optional().describe(`Two-letter App Store country code${fallback ? `, default '${fallback}'` : ""}.`);
+  z.string().length(2).optional().describe(`Two letter country code (App Store storefront or Google Play country)${fallback ? `, default '${fallback}'` : ""}.`);
+
+const platform = (what) =>
+  z.enum(["ios", "android"]).optional().describe(`${what} 'ios' = App Store, 'android' = Google Play. Default 'ios'.`);
+
+const PACKAGE_NAME = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/;
 
 const server = new McpServer({ name: "apprankhero", version: VERSION });
 
@@ -86,7 +92,7 @@ server.tool(
 
 server.tool(
   "arh_list_apps",
-  "List the apps tracked by your AppRankHero team (id, App Store id, name, icon, countries). Use the returned `id` (a UUID, not the App Store id) as app_id in the other tools.",
+  "List the apps tracked by your AppRankHero team, from the App Store (iOS) and Google Play (Android): id, platform, store id (numeric App Store id or Google Play package name), name, icon, store_url, countries. Use the returned `id` (a UUID, not the store id) as app_id in the other tools; the platform of each app is taken from the app itself.",
   {},
   async () => {
     try { return ok(await api("/apps")); } catch (e) { return fail(e); }
@@ -95,23 +101,24 @@ server.tool(
 
 server.tool(
   "arh_search_keywords",
-  "Search App Store keyword research data (popularity 0-100, difficulty 0-100) for a country. Optionally filter by a term substring. Higher popularity = more searched; higher difficulty = harder to rank. Only covers keywords someone has scanned before; to measure a brand new keyword, track it with arh_track_keywords.",
+  "Search keyword research data for the App Store (iOS) or Google Play (Android), selected with platform (popularity 0-100, difficulty 0-100) for a country. Optionally filter by a term substring. Higher popularity = more searched; higher difficulty = harder to rank. Only covers keywords someone has scanned before on that platform; to measure a brand new keyword, track it with arh_track_keywords.",
   {
     term: z.string().optional().describe("Substring to filter keywords by (optional)."),
     country: country("us"),
+    platform: platform("Which store's keyword data to search."),
     limit: z.number().int().min(1).max(200).optional().describe("Max results, default 50."),
   },
-  async ({ term, country, limit }) => {
-    try { return ok(await api("/keywords", { term, country, limit })); } catch (e) { return fail(e); }
+  async ({ term, country, platform, limit }) => {
+    try { return ok(await api("/keywords", { term, country, platform, limit })); } catch (e) { return fail(e); }
   }
 );
 
 server.tool(
   "arh_app_rankings",
-  "Get current App Store keyword rankings for one of your tracked apps: rank (0 = not in the top 200), recent changes (24h/7d/28d, positive = moved up), popularity and difficulty. Only keywords your team tracks that have been scanned at least once; use arh_list_tracked_keywords to also see keywords still waiting for their first scan.",
+  "Get current keyword rankings for one of your tracked apps, on the App Store (iOS) or Google Play (Android) depending on the app: rank (0 = not ranked; the App Store is tracked within the top 200, Google Play within the top 30), recent changes (24h/7d/28d, positive = moved up), popularity and difficulty. Only keywords your team tracks that have been scanned at least once; use arh_list_tracked_keywords to also see keywords still waiting for their first scan.",
   {
     app_id: z.string().describe("The app's id from arh_list_apps."),
-    country: z.string().length(2).optional().describe("Two-letter country code (optional; all if omitted)."),
+    country: z.string().length(2).optional().describe("Two letter country code (App Store storefront or Google Play country), optional, all if omitted."),
     limit: z.number().int().min(1).max(5000).optional().describe("Max rows, default 500."),
   },
   async ({ app_id, country, limit }) => {
@@ -121,11 +128,11 @@ server.tool(
 
 server.tool(
   "arh_rank_history",
-  "Get the historical ranking trend for a specific app + keyword over time (list of {country, rank, checked_at}, oldest first; rank 0 = not in the top 200).",
+  "Get the historical ranking trend for a specific app + keyword over time (list of {country, rank, checked_at}, oldest first; rank 0 = not ranked, meaning outside the top 200 on the App Store or outside the top 30 on Google Play). Works for apps on both stores.",
   {
     app_id: z.string().describe("The app's id from arh_list_apps."),
     keyword: z.string().describe("The keyword to get history for."),
-    country: z.string().length(2).optional().describe("Two-letter country code (optional)."),
+    country: z.string().length(2).optional().describe("Two letter country code (App Store storefront or Google Play country), optional."),
     days: z.number().int().min(1).max(730).optional().describe("How many days back, default 90, max 730."),
   },
   async ({ app_id, keyword, country, days }) => {
@@ -135,7 +142,7 @@ server.tool(
 
 server.tool(
   "arh_report",
-  "Ranking report for the team (the same data as the scheduled email and Slack reports): per app tracked and ranked keyword counts, top 10 count now vs period start, average rank, top gainers and losers, keywords that entered or left the top 10, and data freshness. Use it to answer 'how did my apps do this week'.",
+  "Ranking report for the team across App Store (iOS) and Google Play (Android) apps (the same data as the scheduled email and Slack reports): per app tracked and ranked keyword counts, top 10 count now vs period start, average rank, top gainers and losers, keywords that entered or left the top 10, and data freshness. Use it to answer 'how did my apps do this week'.",
   {
     period: z.enum(["daily", "weekly", "monthly"]).optional().describe("daily = last 24h, weekly = last 7 days (default), monthly = last 30 days."),
     app_id: z.string().optional().describe("Limit to one app (id from arh_list_apps). Omit for all of the team's own and client apps."),
@@ -147,22 +154,23 @@ server.tool(
 
 server.tool(
   "arh_competitors",
-  "List the apps competing for a given keyword in a country (the apps currently ranking for it).",
+  "List the apps competing for a given keyword in a country on the App Store (iOS) or Google Play (Android), selected with platform (the apps currently ranking for it).",
   {
     keyword: z.string().describe("The keyword to find competitors for."),
     country: country("us"),
+    platform: platform("Which store to look at."),
   },
-  async ({ keyword, country }) => {
-    try { return ok(await api("/competitors", { keyword, country })); } catch (e) { return fail(e); }
+  async ({ keyword, country, platform }) => {
+    try { return ok(await api("/competitors", { keyword, country, platform })); } catch (e) { return fail(e); }
   }
 );
 
 server.tool(
   "arh_list_tracked_keywords",
-  "List the keywords your team tracks for one app, each with status ('ranked' = in the top 200, 'unranked' = scanned but not in the top 200, 'pending' = just added and waiting for its first server scan), rank, change_24h/7d/28d (positive = moved up), popularity, difficulty and checked_at. Pending keywords are normally ranked within about a minute (large batches take several minutes), so call this again later to see them.",
+  "List the keywords your team tracks for one app, each with status ('ranked' = in the top 200 on the App Store or the top 30 on Google Play, 'unranked' = scanned but outside that range, 'pending' = just added and waiting for its first server scan), rank, change_24h/7d/28d (positive = moved up), popularity, difficulty and checked_at. Pending keywords are normally ranked within about a minute (large batches take several minutes), so call this again later to see them.",
   {
     app_id: z.string().describe("The app's id from arh_list_apps."),
-    country: z.string().length(2).optional().describe("Two-letter country code (optional; all countries if omitted)."),
+    country: z.string().length(2).optional().describe("Two letter country code (App Store storefront or Google Play country), optional, all countries if omitted."),
   },
   async ({ app_id, country }) => {
     try { return ok(await api("/tracked-keywords", { app_id, country })); } catch (e) { return fail(e); }
@@ -171,7 +179,7 @@ server.tool(
 
 server.tool(
   "arh_track_keywords",
-  "Start tracking App Store keywords for one of your apps in a country (1 to 200 per call; keywords are lowercased and de-duplicated). The server scans them against the App Store: when 5 or fewer new keywords are added they are usually ranked immediately and returned with rank, popularity and difficulty; otherwise, or if the App Store is slow, they come back as 'pending' and are ranked server side within about a minute (large batches take several minutes). Check them with arh_list_tracked_keywords. Keywords already tracked are reported as existing. The team plan caps the total number of tracked keywords; keywords over the cap come back as 'limit_reached'. Needs the owner or member role.",
+  "Start tracking keywords for one of your apps in a country (1 to 200 per call; keywords are lowercased and de-duplicated). The store is taken from the app: App Store (iOS) apps are scanned within the top 200, Google Play (Android) apps within the top 30. The server scans them against that store: when 5 or fewer new keywords are added they are usually ranked immediately and returned with rank, popularity and difficulty; otherwise, or if the store is slow, they come back as 'pending' and are ranked server side within about a minute (large batches take several minutes). Check them with arh_list_tracked_keywords. Keywords already tracked are reported as existing. The team plan caps the total number of tracked keywords; keywords over the cap come back as 'limit_reached'. Needs the owner or member role.",
   {
     app_id: z.string().describe("The app's id from arh_list_apps."),
     keywords: z.array(z.string().min(1).max(100)).min(1).max(200).describe("Keywords to track, e.g. ['focus timer', 'app blocker']."),
@@ -184,7 +192,7 @@ server.tool(
 
 server.tool(
   "arh_untrack_keywords",
-  "Stop tracking keywords for one of your apps in a country. Only removes them from your team's list; shared rank history is kept, so tracking them again later restores their history. Returns how many were removed. Needs the owner or member role.",
+  "Stop tracking keywords for one of your apps (App Store or Google Play) in a country. Only removes them from your team's list; shared rank history is kept, so tracking them again later restores their history. Returns how many were removed. Needs the owner or member role.",
   {
     app_id: z.string().describe("The app's id from arh_list_apps."),
     keywords: z.array(z.string().min(1).max(100)).min(1).max(500).describe("Keywords to stop tracking."),
@@ -197,28 +205,51 @@ server.tool(
 
 server.tool(
   "arh_search_store_apps",
-  "Search the live App Store for apps by name or keyword (or pass a numeric App Store id to look one up). Returns app_store_id, name, bundle_id, developer, icon_url, rating_count and whether your team already tracks it. Use it to find the app_store_id for arh_add_app.",
+  "Search the live App Store (platform ios, default) or Google Play (platform android) for apps by name or keyword, or look one up by id: a numeric App Store id for ios, a package name such as com.example.app for android. Returns platform, store_id (numeric App Store id or Google Play package name), name, developer, icon_url, rating_count and whether your team already tracks it; iOS rows also carry app_store_id and bundle_id. Use it to find the store_id for arh_add_app.",
   {
-    term: z.string().min(1).max(200).describe("Search text, e.g. 'opal screen time', or a numeric App Store id."),
+    term: z.string().min(1).max(200).describe("Search text, e.g. 'opal screen time', a numeric App Store id, or a Google Play package name."),
     country: country("us"),
+    platform: platform("Which store to search."),
     limit: z.number().int().min(1).max(50).optional().describe("Max results, default 10."),
   },
-  async ({ term, country, limit }) => {
-    try { return ok(await api("/store-search", { term, country, limit })); } catch (e) { return fail(e); }
+  async ({ term, country, platform, limit }) => {
+    try { return ok(await api("/store-search", { term, country, platform, limit })); } catch (e) { return fail(e); }
   }
 );
 
 server.tool(
   "arh_add_app",
-  "Add an app to your team so you can track its keywords: your own app (category myApps), a client's (clients) or a competitor (competitors). Pass the app_store_id (find it with arh_search_store_apps); name, bundle id and icon are fetched from the App Store. For a keyword research project that is not a real app, use category 'research' with just a name. If the team already tracks the app it is returned with created=false. Returns the app with its `id` for the other tools. The team plan caps the number of apps. Needs the owner or member role.",
+  "Add an app to your team so you can track its keywords: your own app (category myApps), a client's (clients) or a competitor (competitors). Works for the App Store (platform ios, default) and Google Play (platform android). Pass the store_id (find it with arh_search_store_apps): a numeric App Store id for ios, a Google Play package name such as com.dedaldev.bounded for android; name, icon and developer are fetched from the store. For a keyword research project that is not a real app, use category 'research' with just a name. If the team already tracks the app it is returned with created=false. Returns the app with its `id` (use it as app_id in the other tools), platform and store_url. The team plan caps the number of apps. Needs the owner or member role.",
   {
-    app_store_id: z.string().regex(/^\d+$/).optional().describe("Numeric App Store id, e.g. '6772967892'. Required unless category is 'research'."),
+    platform: platform("Store the app is published on."),
+    store_id: z.string().min(1).max(255).optional().describe("Numeric App Store id (e.g. '6772967892') for ios, or Google Play package name (e.g. 'com.dedaldev.bounded') for android. Required unless category is 'research'."),
+    app_store_id: z.string().regex(/^\d+$/).optional().describe("Deprecated alias for store_id, numeric App Store id only (implies platform ios). Use store_id instead."),
     name: z.string().max(255).optional().describe("Only for research projects: the project name."),
     category: z.enum(["myApps", "clients", "competitors", "research"]).optional().describe("Default 'myApps'."),
-    countries: z.array(z.string().length(2)).min(1).max(50).optional().describe("Countries to track, default ['us']."),
+    countries: z.array(z.string().length(2)).min(1).max(50).optional().describe("Countries to track (App Store storefronts or Google Play countries), default ['us']."),
   },
-  async ({ app_store_id, name, category, countries }) => {
-    try { return ok(await apiPost("/apps", { app_store_id, name, category, countries })); } catch (e) { return fail(e); }
+  async ({ platform, store_id, app_store_id, name, category, countries }) => {
+    try {
+      if (app_store_id && platform === "android") {
+        throw new Error("app_store_id is only for the App Store (ios). For Google Play pass store_id with the package name.");
+      }
+      if (app_store_id && store_id && app_store_id !== store_id) {
+        throw new Error("Pass either store_id or the deprecated app_store_id, not two different values.");
+      }
+      const id = store_id || app_store_id;
+      const effective = app_store_id ? "ios" : platform || "ios";
+      if (id) {
+        if (effective === "ios" && !/^\d+$/.test(id)) {
+          throw new Error(`Invalid App Store id '${id}': expected a numeric id such as '6772967892'. For a Google Play app set platform to 'android' and pass the package name.`);
+        }
+        if (effective === "android" && !PACKAGE_NAME.test(id)) {
+          throw new Error(`Invalid Google Play package name '${id}': expected something like 'com.example.app'.`);
+        }
+      }
+      const body = { platform: id || platform ? effective : undefined, store_id: id, name, category, countries };
+      if (id && effective === "ios") body.app_store_id = id; // older backends only know the legacy field
+      return ok(await apiPost("/apps", body));
+    } catch (e) { return fail(e); }
   }
 );
 
