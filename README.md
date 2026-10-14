@@ -83,7 +83,7 @@ For clients that only run local servers. Needs Node.js 18 or later.
   "mcpServers": {
     "apprankhero": {
       "command": "npx",
-      "args": ["-y", "apprankhero-mcp"],
+      "args": ["-y", "github:DedalDev/apprankhero-mcp"],
       "env": { "ARH_LICENSE_KEY": "ARH-XXXX" }
     }
   }
