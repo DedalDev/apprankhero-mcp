@@ -1,0 +1,104 @@
+{
+  "arh_whoami": {
+    "title": "Who am I",
+    "annotations": {
+      "title": "Who am I",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  "arh_list_apps": {
+    "title": "List tracked apps",
+    "annotations": {
+      "title": "List tracked apps",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  "arh_search_keywords": {
+    "title": "Search keyword research data",
+    "annotations": {
+      "title": "Search keyword research data",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  "arh_app_rankings": {
+    "title": "App keyword rankings",
+    "annotations": {
+      "title": "App keyword rankings",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  "arh_rank_history": {
+    "title": "Keyword rank history",
+    "annotations": {
+      "title": "Keyword rank history",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  "arh_report": {
+    "title": "Ranking report",
+    "annotations": {
+      "title": "Ranking report",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  "arh_competitors": {
+    "title": "Keyword competitors",
+    "annotations": {
+      "title": "Keyword competitors",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  "arh_list_tracked_keywords": {
+    "title": "List tracked keywords",
+    "annotations": {
+      "title": "List tracked keywords",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  "arh_track_keywords": {
+    "title": "Track keywords",
+    "annotations": {
+      "title": "Track keywords",
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    }
+  },
+  "arh_untrack_keywords": {
+    "title": "Untrack keywords",
+    "annotations": {
+      "title": "Untrack keywords",
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false
+    }
+  },
+  "arh_search_store_apps": {
+    "title": "Search the App Store or Google Play",
+    "annotations": {
+      "title": "Search the App Store or Google Play",
+      "readOnlyHint": true,
+      "openWorldHint": true
+    }
+  },
+  "arh_add_app": {
+    "title": "Add an app",
+    "annotations": {
+      "title": "Add an app",
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    }
+  }
+}

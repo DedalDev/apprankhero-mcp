@@ -1,0 +1,42 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.apprankhero/mcp",
+  "title": "AppRankHero",
+  "description": "App Store and Google Play keyword ranks, keyword research and competitors for your apps.",
+  "version": "1.3.0",
+  "websiteUrl": "https://apprankhero.com/help/connect-ai-tools-mcp",
+  "repository": {
+    "url": "https://github.com/DedalDev/apprankhero-mcp",
+    "source": "github"
+  },
+  "icons": [
+    { "src": "https://apprankhero.com/apprankhero-icon.png", "mimeType": "image/png", "sizes": ["512x512"] }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://apprankhero.com/mcp"
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "apprankhero-mcp",
+      "version": "1.3.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "ARH_LICENSE_KEY",
+          "description": "Your AppRankHero Pro or Studio license key (starts with ARH-)",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "ARH_TEAM_ID",
+          "description": "Team to act on when you belong to several teams",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

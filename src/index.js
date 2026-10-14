@@ -15,8 +15,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { readFileSync } from "node:fs";
 
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 const API_BASE = (process.env.ARH_API_BASE || "https://apprankhero.com/api/v1").replace(/\/$/, "");
 const LICENSE_KEY = process.env.ARH_LICENSE_KEY;
 const TEAM_ID = process.env.ARH_TEAM_ID || "";
@@ -79,9 +80,39 @@ const platform = (what) =>
 
 const PACKAGE_NAME = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/;
 
-const server = new McpServer({ name: "apprankhero", version: VERSION });
+/** Titles and annotations shared with the hosted server (resources/mcp/tools.json). */
+const TOOL_META = JSON.parse(readFileSync(new URL("./tool-meta.json", import.meta.url), "utf8"));
 
-server.tool(
+/** Same text as the hosted server sends on initialize. */
+const INSTRUCTIONS = `AppRankHero tracks App Store (iOS) and Google Play (Android) keyword rankings for the user's team, refreshed every morning.
+
+How to use the tools:
+1. Start with arh_list_apps to get each app's id (a UUID), platform and countries. Every app scoped tool needs that app_id, never the store id or the app name.
+2. Countries are two letter storefront codes in lower case (us, gb, de). Use a country the app tracks unless the user asks for another.
+3. Current ranks: arh_app_rankings. Trend for one keyword: arh_rank_history. Week or month summary with winners and losers: arh_report.
+4. New keyword ideas: arh_search_keywords (popularity and difficulty, 0 to 100) and arh_competitors (who ranks for a keyword). Then arh_track_keywords to start tracking the good ones.
+5. Rank 0 means not ranked (outside the top 200 on the App Store, outside the top 30 on Google Play). Lower is better; a positive change means the app moved up.
+6. Write tools (arh_track_keywords, arh_untrack_keywords, arh_add_app) change the team's data. Confirm with the user before calling them unless they asked for exactly that change.
+7. arh_whoami shows the plan and limits. If a write fails on a plan limit, tell the user and point to https://apprankhero.com/pricing.`;
+
+const server = new McpServer(
+  {
+    name: "apprankhero",
+    title: "AppRankHero",
+    version: VERSION,
+    websiteUrl: "https://apprankhero.com",
+    icons: [{ src: "https://apprankhero.com/apprankhero-icon.png", mimeType: "image/png", sizes: ["512x512"] }],
+  },
+  { instructions: INSTRUCTIONS }
+);
+
+/** Registers a tool with the shared title and annotations. */
+function tool(name, description, inputSchema, handler) {
+  const meta = TOOL_META[name] ?? {};
+  server.registerTool(name, { title: meta.title, description, inputSchema, annotations: meta.annotations }, handler);
+}
+
+tool(
   "arh_whoami",
   "Verify the AppRankHero license key and show the active team (id, name, your role), plan, tracked app and keyword counts, limits, and every team you belong to. Set ARH_TEAM_ID to one of those team ids to act on a different team. Your role must be owner or member to add apps or change tracked keywords; viewers are read only.",
   {},
@@ -90,7 +121,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_list_apps",
   "List the apps tracked by your AppRankHero team, from the App Store (iOS) and Google Play (Android): id, platform, store id (numeric App Store id or Google Play package name), name, icon, store_url, countries. Use the returned `id` (a UUID, not the store id) as app_id in the other tools; the platform of each app is taken from the app itself.",
   {},
@@ -99,7 +130,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_search_keywords",
   "Search keyword research data for the App Store (iOS) or Google Play (Android), selected with platform (popularity 0-100, difficulty 0-100) for a country. Optionally filter by a term substring. Higher popularity = more searched; higher difficulty = harder to rank. Only covers keywords someone has scanned before on that platform; to measure a brand new keyword, track it with arh_track_keywords.",
   {
@@ -113,7 +144,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_app_rankings",
   "Get current keyword rankings for one of your tracked apps, on the App Store (iOS) or Google Play (Android) depending on the app: rank (0 = not ranked; the App Store is tracked within the top 200, Google Play within the top 30), recent changes (24h/7d/28d, positive = moved up), popularity and difficulty. Only keywords your team tracks that have been scanned at least once; use arh_list_tracked_keywords to also see keywords still waiting for their first scan.",
   {
@@ -126,7 +157,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_rank_history",
   "Get the historical ranking trend for a specific app + keyword over time (list of {country, rank, checked_at}, oldest first; rank 0 = not ranked, meaning outside the top 200 on the App Store or outside the top 30 on Google Play). Works for apps on both stores.",
   {
@@ -140,7 +171,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_report",
   "Ranking report for the team across App Store (iOS) and Google Play (Android) apps (the same data as the scheduled email and Slack reports): per app tracked and ranked keyword counts, top 10 count now vs period start, average rank, top gainers and losers, keywords that entered or left the top 10, and data freshness. Use it to answer 'how did my apps do this week'.",
   {
@@ -152,7 +183,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_competitors",
   "List the apps competing for a given keyword in a country on the App Store (iOS) or Google Play (Android), selected with platform (the apps currently ranking for it).",
   {
@@ -165,7 +196,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_list_tracked_keywords",
   "List the keywords your team tracks for one app, each with status ('ranked' = in the top 200 on the App Store or the top 30 on Google Play, 'unranked' = scanned but outside that range, 'pending' = just added and waiting for its first server scan), rank, change_24h/7d/28d (positive = moved up), popularity, difficulty and checked_at. Pending keywords are normally ranked within about a minute (large batches take several minutes), so call this again later to see them.",
   {
@@ -177,7 +208,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_track_keywords",
   "Start tracking keywords for one of your apps in a country (1 to 200 per call; keywords are lowercased and de-duplicated). The store is taken from the app: App Store (iOS) apps are scanned within the top 200, Google Play (Android) apps within the top 30. The server scans them against that store: when 5 or fewer new keywords are added they are usually ranked immediately and returned with rank, popularity and difficulty; otherwise, or if the store is slow, they come back as 'pending' and are ranked server side within about a minute (large batches take several minutes). Check them with arh_list_tracked_keywords. Keywords already tracked are reported as existing. The team plan caps the total number of tracked keywords; keywords over the cap come back as 'limit_reached'. Needs the owner or member role.",
   {
@@ -190,7 +221,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_untrack_keywords",
   "Stop tracking keywords for one of your apps (App Store or Google Play) in a country. Only removes them from your team's list; shared rank history is kept, so tracking them again later restores their history. Returns how many were removed. Needs the owner or member role.",
   {
@@ -203,7 +234,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_search_store_apps",
   "Search the live App Store (platform ios, default) or Google Play (platform android) for apps by name or keyword, or look one up by id: a numeric App Store id for ios, a package name such as com.example.app for android. Returns platform, store_id (numeric App Store id or Google Play package name), name, developer, icon_url, rating_count and whether your team already tracks it; iOS rows also carry app_store_id and bundle_id. Use it to find the store_id for arh_add_app.",
   {
@@ -217,7 +248,7 @@ server.tool(
   }
 );
 
-server.tool(
+tool(
   "arh_add_app",
   "Add an app to your team so you can track its keywords: your own app (category myApps), a client's (clients) or a competitor (competitors). Works for the App Store (platform ios, default) and Google Play (platform android). Pass the store_id (find it with arh_search_store_apps): a numeric App Store id for ios, a Google Play package name such as com.dedaldev.bounded for android; name, icon and developer are fetched from the store. For a keyword research project that is not a real app, use category 'research' with just a name. If the team already tracks the app it is returned with created=false. Returns the app with its `id` (use it as app_id in the other tools), platform and store_url. The team plan caps the number of apps. Needs the owner or member role.",
   {
